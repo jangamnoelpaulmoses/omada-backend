@@ -51,6 +51,47 @@ function computeInstagramMetrics(posts) {
     };
   }
   
-  
-  module.exports = { computeInstagramMetrics };
+function computeFacebookMetrics(posts) {
+  const now = new Date();
+  posts = posts
+    .filter(p => p.date_posted)
+    .sort((a, b) => new Date(b.date_posted) - new Date(a.date_posted));
+
+  const followers = posts[0]?.page_followers || 0;
+
+  const last30 = posts.filter(
+    p => (now - new Date(p.date_posted)) / 86400000 <= 30
+  );
+
+  const daysSinceLastPost = Math.floor(
+    (now - new Date(posts[0].date_posted)) / 86400000
+  );
+
+  const recent = posts.slice(0, 10);
+  const totalEngagement = recent.reduce(
+    (sum, p) => sum + (p.likes || 0) + (p.num_comments || 0) + (p.num_shares || 0),
+    0
+  );
+
+  const avgEngagement = recent.length
+    ? totalEngagement / recent.length
+    : 0;
+
+  const engagementRate = followers
+    ? (avgEngagement / followers) * 100
+    : 0;
+
+  return {
+    posts_last_30_days: last30.length,
+    avg_posts_per_week: Number((last30.length / 4).toFixed(2)),
+    days_since_last_post: daysSinceLastPost,
+    followers,
+    engagement_rate: Number(engagementRate.toFixed(2))
+  };
+}
+
+module.exports = {
+  computeInstagramMetrics,
+  computeFacebookMetrics
+};
 

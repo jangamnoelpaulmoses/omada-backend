@@ -7,6 +7,14 @@ function discoverProfiles(input) {
         .split("/")[0]
         .trim();
     }
+    if (input.includes("facebook.com")) {
+        profiles.facebook = input
+          .split("facebook.com/")[1]
+          .split("/")[0]
+          .replace("profile.php?id=", "")
+          .trim();
+      }
+    
   
     return profiles;
   }

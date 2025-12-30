@@ -71,17 +71,23 @@
 
 // module.exports = router;
 
-
-
 const express = require("express");
 const router = express.Router();
 
 const { discoverProfiles } = require("../services/discovery");
+
 const {
   triggerInstagram,
-  fetchInstagramFromSnapshot
+  fetchInstagramFromSnapshot,
+  triggerFacebook,
+  fetchFacebookFromSnapshot
 } = require("../services/brightdata");
-const { computeInstagramMetrics } = require("../services/metrics");
+
+const {
+  computeInstagramMetrics,
+  computeFacebookMetrics
+} = require("../services/metrics");
+
 const { gradeInstagram } = require("../services/grading");
 
 const {
@@ -90,6 +96,9 @@ const {
   invalidateSnapshot
 } = require("../cache/snapshotCache");
 
+/**
+ * Normalize Bright Data response (array | NDJSON string)
+ */
 function normalizeBrightData(rawData) {
   if (Array.isArray(rawData)) return rawData;
 
@@ -113,54 +122,86 @@ function normalizeBrightData(rawData) {
 
 router.post("/", async (req, res) => {
   try {
-    const { input } = req.body;
+    const { input, platform = "instagram" } = req.body;
+
     if (!input) {
       return res.status(400).json({ error: "input required" });
     }
 
     const profiles = discoverProfiles(input);
-    if (!profiles.instagram) {
-      return res.status(400).json({ error: "Instagram profile not found" });
+    console.log("Discovered profiles:", profiles);
+
+    const handle = profiles[platform];
+    console.log(`handle is:`, handle);
+    if (!handle) {
+      return res.status(400).json({
+        error: `${platform} profile not found`
+      });
     }
 
-    const handle = profiles.instagram.toLowerCase();
+    const normalizedHandle = handle.toLowerCase();
+    const cacheKey = `${platform}:${normalizedHandle}`;
 
-    let snapshotId = getSnapshot(handle);
+    let snapshotId = getSnapshot(cacheKey);
 
     if (snapshotId) {
       console.log("⚡ Cache hit:", snapshotId);
     } else {
-      snapshotId = await triggerInstagram(handle);
+
+      snapshotId =
+        platform === "facebook"
+          ? await triggerFacebook(normalizedHandle)
+          : await triggerInstagram(normalizedHandle);
+
       console.log("📸 New snapshot:", snapshotId);
-      setSnapshot(handle, snapshotId);
+      
+      setSnapshot(cacheKey, snapshotId);
     }
 
     let rawData;
     try {
-      rawData = await fetchInstagramFromSnapshot(snapshotId);
+      rawData =
+        platform === "facebook"
+          ? await fetchFacebookFromSnapshot(snapshotId)
+          : await fetchInstagramFromSnapshot(snapshotId);
     } catch (err) {
-      // Snapshot invalid / expired → retry once
+      // Snapshot expired or invalid → retry once
       console.log("♻️ Invalid snapshot, re-triggering");
-      invalidateSnapshot(handle);
 
-      snapshotId = await triggerInstagram(handle);
-      setSnapshot(handle, snapshotId);
-      rawData = await fetchInstagramFromSnapshot(snapshotId);
+      invalidateSnapshot(cacheKey);
+
+      snapshotId =
+        platform === "facebook"
+          ? await triggerFacebook(normalizedHandle)
+          : await triggerInstagram(normalizedHandle);
+
+      setSnapshot(cacheKey, snapshotId);
+
+      rawData =
+        platform === "facebook"
+          ? await fetchFacebookFromSnapshot(snapshotId)
+          : await fetchInstagramFromSnapshot(snapshotId);
     }
 
     const posts = normalizeBrightData(rawData);
-    console.log("📦 Normalized posts:", posts.length);
+    console.log(`📦 Normalized ${platform} posts:`, posts.length);
 
     if (posts.length === 0) {
-      return res.status(400).json({ error: "No Instagram posts found" });
+      return res.status(400).json({
+        error: `No ${platform} posts found`
+      });
     }
 
-    const metrics = computeInstagramMetrics(posts);
+    const metrics =
+      platform === "facebook"
+        ? computeFacebookMetrics(posts)
+        : computeInstagramMetrics(posts);
+
     const grade = gradeInstagram(metrics);
 
     res.json({
-      instagram: {
-        handle,
+      [platform]: {
+        handle: normalizedHandle,
         metrics,
         ...grade
       }

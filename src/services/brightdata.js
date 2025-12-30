@@ -1,72 +1,10 @@
-// const axios = require("axios");
-// const { sleep } = require("../utils/sleep");
-
-// const TOKEN = process.env.BRIGHTDATA_TOKEN;
-// const DATASET_ID = "gd_lk5ns7kz21pck8jpis";
-
-// async function triggerInstagram(username) {
-//   const payload = [
-//     {
-//       url: `https://www.instagram.com/${username}/`,
-//       num_of_posts: 5,
-//       start_date: "01-01-2020",
-//       end_date: "12-17-2025",
-//       post_type: ""
-//     }
-//   ];
-
-//   const res = await axios.post(
-//     `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${DATASET_ID}&include_errors=true&type=discover_new&discover_by=url`,
-//     payload,
-//     {
-//       headers: {
-//         Authorization: `Bearer ${TOKEN}`,
-//         "Content-Type": "application/json"
-//       }
-//     }
-//   );
-
-//   return res.data.snapshot_id;
-// }
-
-// async function fetchSnapshot(snapshotId) {
-//   const res = await axios.get(
-//     `https://api.brightdata.com/datasets/v3/snapshot/${snapshotId}`,
-//     {
-//       headers: { Authorization: `Bearer ${TOKEN}` }
-//     }
-//   );
-
-//   return res.data;
-// }
-
-// async function fetchInstagramData(username) {
-//   const snapshotId = await triggerInstagram(username);
-//   console.log("📸 Snapshot ID:", snapshotId);
-
-//   for (let i = 0; i < 35; i++) {
-//     await sleep(4000);
-//     console.log("⏳ polling snapshot...", snapshotId);
-
-//     const data = await fetchSnapshot(snapshotId);
-//     if (data.length > 0) {
-//         console.log("✅ Snapshot ready with data",data);
-//       return data;
-//     }
-//   }
-
-//   throw new Error("Snapshot not ready");
-// }
-
-// module.exports = { fetchInstagramData };
-
-
-
 const axios = require("axios");
 const { sleep } = require("../utils/sleep");
 
 const TOKEN = process.env.BRIGHTDATA_TOKEN;
 const DATASET_ID = "gd_lk5ns7kz21pck8jpis";
+const FB_DATASET_ID = "gd_lkaxegm826bjpoo9m5"; 
+
 
 async function fetchHtmlWithBrightData(url) {
     const res = await fetch("https://api.brightdata.com/request", {
@@ -108,9 +46,9 @@ async function triggerInstagram(username) {
   const payload = [
     {
       url: `https://www.instagram.com/${username}/`,
-      num_of_posts: 5,
-      start_date: "01-01-2020",
-      end_date: "12-17-2025",
+      num_of_posts: 10,
+      start_date: "",
+      end_date: "",
       post_type: ""
     }
   ];
@@ -179,12 +117,52 @@ async function fetchInstagramFromSnapshot(snapshotId) {
 
   throw new Error("Snapshot not ready");
 }
-
+async function triggerFacebook(page) {
+    const payload = [
+      {
+        url: `https://www.facebook.com/${page}/`,
+        num_of_posts: 5,
+        start_date: "",
+        end_date: ""
+      }
+    ];
+  
+    const res = await axios.post(
+      `https://api.brightdata.com/datasets/v3/trigger?dataset_id=${FB_DATASET_ID}&include_errors=true`,
+      payload,
+      {
+        headers: {
+          Authorization: `Bearer ${TOKEN}`,
+          "Content-Type": "application/json"
+        }
+      }
+    );
+  
+    return res.data.snapshot_id;
+  }
+  
+  async function fetchFacebookFromSnapshot(snapshotId) {
+    for (let i = 0; i < 35; i++) {
+    
+        console.log(4*i,"sec ⏳ polling snapshot for facebook", snapshotId);
+    
+        const data = await fetchSnapshot(snapshotId);
+        if ( data.length > 0) {
+          console.log("✅ Snapshot ready");
+          return data;
+        }
+        await sleep(4000);
+      }
+    
+      throw new Error("Snapshot not ready");
+  }
 module.exports = {
   triggerInstagram,
   triggerInstagramForPosts,
   fetchInstagramFromSnapshot,
-  fetchHtmlWithBrightData
+  fetchHtmlWithBrightData,
+  triggerFacebook,
+  fetchFacebookFromSnapshot
 };
 
 

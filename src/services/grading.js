@@ -34,4 +34,9 @@ function gradeInstagram(metrics) {
   return { grade, score, urgency };
 }
 
-module.exports = { gradeInstagram };
+function gradeFacebook(metrics) {
+    return gradeInstagram(metrics); // same scoring rules for now
+  }
+  
+
+module.exports = { gradeInstagram, gradeFacebook };
